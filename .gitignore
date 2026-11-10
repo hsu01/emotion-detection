@@ -1,0 +1,25 @@
+# Data (FER2013) — download via Kaggle, never commit
+data/*
+!data/.gitkeep
+data/*.csv
+
+# Model checkpoints
+checkpoints/
+*.pth
+*.pt
+
+# Generated results (figures, tables)
+results/*
+!results/.gitkeep
+
+# Python
+__pycache__/
+*.pyc
+
+# Jupyter
+.ipynb_checkpoints/
+
+# macOS / secrets
+.DS_Store
+.env
+kaggle.json
