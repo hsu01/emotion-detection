@@ -30,7 +30,7 @@ We conduct four experiments to compare model architecture and data augmentation.
 | Experiment | Model | Data Augmentation | Status |
 |---|---|---|---|
 | **A** | CNN trained from scratch | No | Training and validation completed |
-| **B** | CNN trained from scratch | Yes | Pending |
+| **B** | CNN trained from scratch | Yes | Training and validation completed (local run) |
 | **C** | Pretrained ResNet18 | No | Pending |
 | **D** | Pretrained ResNet18 | Yes | Pending |
 
@@ -41,7 +41,7 @@ Data augmentation is applied only to training images. Validation and test images
 ### Experiment Notebooks
 
 - **Experiment A:** `notebooks/01_baseline_cnn.ipynb`
-- **Experiment B:** To be added
+- **Experiment B:** `notebooks/02_cnn_augmented.ipynb`
 - **Experiment C:** To be added
 - **Experiment D:** To be added
 
@@ -253,6 +253,163 @@ The notebook includes:
 
 ---
 
+## Experiment B: CNN with Data Augmentation
+
+**Status: Training and validation evaluation completed, November 20, 2026.**
+
+Experiment B uses the exact same CNN as Experiment A, but this time the training pictures get randomly changed a little every time the model sees them. We flip them, tilt them, make them brighter or darker, and sometimes cover a small part of the face.
+
+Everything else is the same as Experiment A (model, split, seed, learning rate, epochs), so any difference in the results comes from the augmentation.
+
+### Model Configuration
+
+| Parameter | Configuration |
+|---|---|
+| Architecture | Custom CNN (same as Experiment A) |
+| Training | From scratch |
+| Trainable parameters | 1,274,823 |
+| Input dimensions | 1 × 48 × 48 |
+| Output classes | 7 |
+| Data augmentation | **Yes (training images only)** |
+| Optimizer | Adam |
+| Learning rate | 0.001 |
+| Loss function | CrossEntropyLoss |
+| Batch size | 64 |
+| Training epochs | 15 |
+| Best checkpoint selection | Validation accuracy |
+| Train/validation split | Stratified 90/10 |
+| Random seed | 42 |
+| Hardware | Apple Silicon GPU (MPS), run locally |
+
+### Augmentations
+
+Each augmentation goes with one of the real-world problems from our research question:
+
+| Augmentation | What it does | Real-world problem it copies |
+|---|---|---|
+| `RandomHorizontalFlip()` | flips the face left/right half the time | faces can point either way |
+| `RandomRotation(15)` | tilts the face up to 15° either way | people tilt their heads |
+| `ColorJitter(brightness=0.4)` | makes it anywhere from 60% to 140% as bright | bad lighting |
+| `RandomErasing(p=0.25, scale=(0.02, 0.15))` | 1 in 4 pictures gets a small gray box over part of the face | something covering the face |
+
+We kept these a little weaker than the robustness tests (30° tilts, 50% / 150% brightness), so the robustness tests still check whether the model can handle situations it didn't train on.
+
+Training transform:
+
+```python
+transforms.Compose([
+    transforms.Grayscale(num_output_channels=1),
+    transforms.Resize((48, 48)),
+    transforms.RandomHorizontalFlip(),
+    transforms.RandomRotation(15),
+    transforms.ColorJitter(brightness=0.4),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.5], std=[0.5]),
+    transforms.RandomErasing(p=0.25, scale=(0.02, 0.15)),
+])
+```
+
+Validation images use the same transform as Experiment A, with no augmentation.
+
+### Training Results
+
+The augmented CNN was trained for 15 epochs using the FER2013 training split.
+
+| Metric | Result |
+|---|---:|
+| Best validation accuracy | **55.17%** |
+| Macro F1-score | **44.42%** |
+| Best epoch | **15** |
+| Final training accuracy | 47.35% |
+| Final validation accuracy | 55.17% |
+| Training epochs | 15 |
+
+The best checkpoint was the last epoch, and validation loss was still going down, so the model was still improving when training stopped.
+
+### Per-Class Validation Performance
+
+| Emotion | Precision | Recall | F1-score |
+|---|---:|---:|---:|
+| Angry | 0.5045 | 0.4211 | 0.4590 |
+| Disgust | 0.0000 | 0.0000 | 0.0000 |
+| Fear | 0.3540 | 0.1390 | 0.1996 |
+| Happy | 0.7434 | 0.8546 | 0.7951 |
+| Neutral | 0.5513 | 0.4980 | 0.5233 |
+| Sad | 0.3544 | 0.6046 | 0.4468 |
+| Surprise | 0.7382 | 0.6404 | 0.6858 |
+
+**Overall validation accuracy:** 55.17%
+
+**Macro F1-score:** 44.42%
+
+### Key Observations
+
+**1. About 1 point lower than Experiment A (55.17% vs 56.29%).**
+
+Augmentation didn't help accuracy on normal validation pictures, at least not in 15 epochs.
+
+**2. No more overfitting.**
+
+Validation loss keeps going down the whole time, and training accuracy stays below validation accuracy because the training pictures are harder.
+
+**3. The model hadn't finished learning.**
+
+The best epoch was the last one. Augmented models usually need more epochs, but we kept 15 to compare fairly with A.
+
+**4. Weak emotions didn't improve.**
+
+Disgust is still 0, and fear got worse (F1 0.31 to 0.20).
+
+**5. The model guesses "sad" too often.**
+
+Many fear, disgust, angry, and neutral faces get predicted as sad, so sad has high recall (0.60) but low precision (0.35).
+
+### Saved Experiment B Artifacts
+
+| File | Description |
+|---|---|
+| `best_cnn_augmented.pth` | Best model checkpoint |
+| `history_cnn_augmented.json` | Training and validation metrics across 15 epochs |
+| `classification_report.json` | Per-class precision, recall, F1-score, and accuracy |
+| `confusion_matrix.png` | Normalized validation confusion matrix |
+| `training_curves.png` | Training and validation loss/accuracy graphs |
+| `comparison_vs_A.csv` | Side-by-side comparison with Experiment A |
+
+These are saved locally in `results/B_augmented/` and will be uploaded to the team Drive:
+
+```text
+MyDrive/
+└── emotion-detection/
+    └── checkpoints/
+        └── B_augmented/
+```
+
+Model checkpoints and generated results are not committed to GitHub.
+
+### Experiment B Notebook
+
+The completed notebook is available at:
+
+[Experiment B: CNN with Data Augmentation](notebooks/02_cnn_augmented.ipynb)
+
+The notebook includes:
+
+- Dataset download and exploration
+- Data preprocessing and augmentation
+- Stratified training/validation split
+- Augmented sample visualization
+- CNN architecture
+- Model training
+- Checkpoint saving
+- Validation classification report
+- Confusion matrix
+- Training loss and accuracy visualization
+- Comparison with Experiment A
+
+**Important:** All reported Experiment B performance metrics are from the validation set, not the official held-out test set.
+
+---
+
 ## Repository Structure
 
 ```text
@@ -263,7 +420,8 @@ emotion-detection/
 ├── data/
 │   └── # FER2013 dataset (not committed)
 ├── notebooks/
-│   └── 01_baseline_cnn.ipynb
+│   ├── 01_baseline_cnn.ipynb
+│   └── 02_cnn_augmented.ipynb
 ├── src/
 │   └── # Shared model, dataset, and evaluation modules
 ├── results/
@@ -484,10 +642,10 @@ The current notebook uses Google Colab-specific paths and authentication. Local 
 - [x] Training curves generated
 - [x] Experiment A artifacts saved to Google Drive
 - [x] Completed Experiment A notebook committed to GitHub
+- [x] Experiment B: CNN with augmentation (training and validation)
 
 ### Remaining
 
-- [ ] Experiment B — CNN with augmentation
 - [ ] Experiment C — ResNet18 without augmentation
 - [ ] Experiment D — ResNet18 with augmentation
 - [ ] Final test-set evaluation
