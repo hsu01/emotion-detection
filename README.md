@@ -409,7 +409,7 @@ The notebook includes:
 **Important:** All reported Experiment B performance metrics are from the validation set, not the official held-out test set.
 
 ---
-## Experiment C — Pretrained ResNet18 (No Augmentation)
+## Experiment C - Pretrained ResNet18 (No Augmentation)
 
 **Status: Training and validation evaluation completed - November 23, 2026.**
 
