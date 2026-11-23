@@ -31,7 +31,7 @@ We conduct four experiments to compare model architecture and data augmentation.
 |---|---|---|---|
 | **A** | CNN trained from scratch | No | Training and validation completed |
 | **B** | CNN trained from scratch | Yes | Training and validation completed (local run) |
-| **C** | Pretrained ResNet18 | No | Pending |
+| **C** | Pretrained ResNet18 | No | Training and validation completed |
 | **D** | Pretrained ResNet18 | Yes | Pending |
 
 All experiments use the same training, validation, and test splits to ensure fair comparisons.
@@ -42,7 +42,7 @@ Data augmentation is applied only to training images. Validation and test images
 
 - **Experiment A:** `notebooks/01_baseline_cnn.ipynb`
 - **Experiment B:** `notebooks/02_cnn_augmented.ipynb`
-- **Experiment C:** To be added
+- **Experiment C:** `notebooks/03_resnet18_pretrained.ipynb`
 - **Experiment D:** To be added
 
 ## Dataset — FER2013
@@ -409,6 +409,142 @@ The notebook includes:
 **Important:** All reported Experiment B performance metrics are from the validation set, not the official held-out test set.
 
 ---
+## Experiment C - Pretrained ResNet18 (No Augmentation)
+
+**Status: Training and validation evaluation completed - November 23, 2026.**
+
+Experiment C uses ResNet18 pretrained on ImageNet and fine-tunes it on FER2013 without data augmentation.
+
+Instead of training a CNN from scratch, we use pretrained weights as the starting point and replace the original classification layer with a new layer that predicts the seven FER2013 emotion categories.
+
+### Model Configuration
+
+| Parameter | Configuration |
+|---|---|
+| Architecture | ResNet18 |
+| Pretrained weights | ImageNet IMAGENET1K_V1 |
+| Training | Fine-tuning pretrained model |
+| Input dimensions | 3 × 224 × 224 |
+| Output classes | 7 |
+| Data augmentation | None |
+| Optimizer | Adam |
+| Learning rate | 0.001 |
+| Loss function | CrossEntropyLoss |
+| Batch size | 64 |
+| Training epochs | 15 |
+| Best checkpoint selection | Validation accuracy |
+| Train/validation split | Stratified 90/10 |
+| Random seed | 42 |
+
+### Preprocessing
+
+FER2013 images are originally 48 × 48 grayscale images. For ResNet18, they are resized to 224 × 224 and converted to three channels.
+
+Training and validation images use the same transformations:
+
+```python
+transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.Grayscale(num_output_channels = 3),
+    transforms.ToTensor(),
+    transforms.Normalize(mean = [0.485, 0.456, 0.406], std = [0.229, 0.224, 0.225]
+    )
+])
+```
+
+ImageNet mean and standard deviation values are used to match the preprocessing expected by the pretrained model.
+
+### Model Architecture
+
+- Base model: ResNet18 with pretrained ImageNet weights.
+- Final layer: The original 1000-class fully connected layer is replaced with a new fully connected layer with seven outputs.
+- Training: All model parameters are fine-tuned using the FER2013 training split.
+
+### Training Results
+
+| Metric | Result |
+|---|---:|
+| Best validation accuracy | **63.15%** |
+| Macro F1-score | **58.43%** |
+| Best epoch | **4** |
+| Final training accuracy | 97.28% |
+| Final validation accuracy | 61.65% |
+| Training epochs | 15 |
+
+The best checkpoint was saved at epoch 4 based on validation accuracy.
+
+### Per-Class Validation Performance
+
+| Emotion | Precision | Recall | F1-score |
+|---|---:|---:|---:|
+| Angry | 0.5037 | 0.6792 | 0.5784 |
+| Disgust | 0.7368 | 0.3182 | 0.4444 |
+| Fear | 0.5256 | 0.2756 | 0.3616 |
+| Happy | 0.8708 | 0.8213 | 0.8453 |
+| Neutral | 0.5542 | 0.6593 | 0.6022 |
+| Sad | 0.5087 | 0.4824 | 0.4952 |
+| Surprise | 0.7081 | 0.8265 | 0.7627 |
+
+**Overall validation accuracy:** 63.15%
+
+**Macro F1-score:** 58.43%
+
+**Weighted F1-score:** 62.30%
+
+### Key Observations
+
+1. ResNet18 outperforms the baseline CNN on validation accuracy. Experiment C achieves 63.15%, compared with 56.29% for Experiment A.
+2. Happy and surprise are recognized most successfully. Happy achieves an F1-score of 84.53%, followed by surprise at 76.27%.
+3. Fear remains difficult to classify. It has the lowest F1-score at 36.16%. It is frequently confused with sad, angry, and surprise.
+4. Disgust has relatively high precision but low recall. Its precision is 73.68%, while recall is 31.82%, meaning the model misses many disgust examples.
+5. **Overfitting is observed.** Training accuracy increases to approximately 97%, while validation accuracy peaks at 63.15% at epoch 4 and then plateaus. Validation loss increases as training continues.
+6. Transfer learning improves standard validation performance. The results suggest that pretrained ResNet18 provides a stronger starting point than the custom CNN trained from scratch.
+
+### Saved Experiment C Artifacts
+
+| File | Description |
+|---|---|
+| `best_resnet18_pretrained.pth` | Best model checkpoint |
+| `history_resnet18_pretrained.json` | Training and validation metrics across 15 epochs |
+| `confusion_matrix.png` | Normalized validation confusion matrix |
+| `training_curves.png` | Training and validation loss/accuracy graphs |
+
+These artifacts are stored in Google Drive:
+
+```text
+MyDrive/
+└── emotion-detection/
+    └── checkpoints/
+        └── experiment_C/
+            ├── best_resnet18_pretrained.pth
+            └── history_resnet18_pretrained.json
+```
+
+The confusion matrix and training curves should also be saved for the final report.
+
+Model checkpoints and generated results are not committed to GitHub.
+
+### Experiment C Notebook
+
+The completed notebook is available at:
+
+[Experiment C — Pretrained ResNet18](notebooks/03_resnet18_pretrained.ipynb)
+
+The notebook includes:
+
+- Dataset download and exploration
+- Data preprocessing and ImageNet normalization
+- Stratified training/validation split
+- ResNet18 architecture with pretrained ImageNet weights
+- Model training and fine-tuning
+- Checkpoint saving
+- Validation classification report
+- Confusion matrix
+- Training loss and accuracy visualization
+
+Important: All reported Experiment C performance metrics are from the validation set, not the official held-out test set.
+
+---
 
 ## Repository Structure
 
@@ -421,7 +557,8 @@ emotion-detection/
 │   └── # FER2013 dataset (not committed)
 ├── notebooks/
 │   ├── 01_baseline_cnn.ipynb
-│   └── 02_cnn_augmented.ipynb
+│   ├── 02_cnn_augmented.ipynb
+│   └── 03_resnet18_pretrained.ipynb
 ├── src/
 │   └── # Shared model, dataset, and evaluation modules
 ├── results/
@@ -643,10 +780,10 @@ The current notebook uses Google Colab-specific paths and authentication. Local 
 - [x] Experiment A artifacts saved to Google Drive
 - [x] Completed Experiment A notebook committed to GitHub
 - [x] Experiment B: CNN with augmentation (training and validation)
+- [x] Experiment C — ResNet18 without augmentation
 
 ### Remaining
 
-- [ ] Experiment C — ResNet18 without augmentation
 - [ ] Experiment D — ResNet18 with augmentation
 - [ ] Final test-set evaluation
 - [ ] Robustness evaluation under lighting changes
