@@ -486,7 +486,9 @@ The best checkpoint was saved at epoch 4 based on validation accuracy.
 | Surprise | 0.7081 | 0.8265 | 0.7627 |
 
 **Overall validation accuracy:** 63.15%
+
 **Macro F1-score:** 58.43%
+
 **Weighted F1-score:** 62.30%
 
 ### Key Observations
